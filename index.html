@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Complaint Map - Smart City Solutions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            box-sizing: border-box;
+        }
+        
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .page {
+            display: none;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        .map-container {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f8fafc 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .complaint-pin {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 3px solid white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .complaint-pin:hover {
+            transform: scale(1.2);
+            z-index: 10;
+        }
+        
+        .complaint-pin.pending {
+            background-color: #ef4444;
+        }
+        
+        .complaint-pin.in-progress {
+            background-color: #f59e0b;
+        }
+        
+        .complaint-pin.resolved {
+            background-color: #10b981;
+        }
+        
+        .complaint-card {
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .complaint-card.show {
+            transform: translateY(0);
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-pending {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .status-in-progress {
+            background-color: #fef3c7;
+            color: #d97706;
+        }
+        
+        .status-resolved {
+            background-color: #d1fae5;
+            color: #059669;
+        }
+        
+        .grid-pattern {
+            background-image: 
+                linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        
+        .hero-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <div class="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-4 h-4 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <h1 class="text-lg sm:text-xl font-semibold text-gray-900">ComplaintMap</h1>
+                </div>
+                
+                <!-- Desktop Navigation -->
+                <nav class="hidden lg:flex space-x-6 xl:space-x-8">
+                    <a href="#" onclick="showPage('home')" class="nav-link text-blue-600 font-medium border-b-2 border-blue-600 pb-1">Home</a>
+                    <a href="#" onclick="showPage('dashboard')" class="nav-link text-gray-600 hover:text-gray-900 transition-colors">Dashboard</a>
+                    <a href="#" onclick="showPage('complaints')" class="nav-link text-gray-600 hover:text-gray-900 transition-colors">Complaints</a>
+                    <a href="#" onclick="showPage('analytics')" class="nav-link text-gray-600 hover:text-gray-900 transition-colors">Analytics</a>
+                    <a href="#" onclick="showPage('contact')" class="nav-link text-gray-600 hover:text-gray-900 transition-colors">Contact</a>
+                </nav>
+                
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <!-- Submit Button - Hidden on small screens -->
+                    <button class="hidden sm:block bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-700 transition-colors">
+                        Submit Complaint
+                    </button>
+                    
+                    <!-- Notification Icon -->
+                    <div class="relative">
+                        <span class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">3</span>
+                        <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5v-5z"/>
+                        </svg>
+                    </div>
+                    
+                    <!-- Profile -->
+                    <div class="w-7 h-7 sm:w-8 sm:h-8 bg-gray-300 rounded-full"></div>
+                    
+                    <!-- Mobile Menu Button -->
+                    <button onclick="toggleMobileMenu()" class="lg:hidden p-2 text-gray-600 hover:text-gray-900">
+                        <svg id="menuIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                        <svg id="closeIcon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mobile Navigation Menu -->
+            <div id="mobileMenu" class="lg:hidden hidden mt-4 pb-4 border-t border-gray-200">
+                <nav class="flex flex-col space-y-3 pt-4">
+                    <a href="#" onclick="showPage('home'); closeMobileMenu()" class="nav-link-mobile text-blue-600 font-medium px-2 py-1">Home</a>
+                    <a href="#" onclick="showPage('dashboard'); closeMobileMenu()" class="nav-link-mobile text-gray-600 hover:text-gray-900 transition-colors px-2 py-1">Dashboard</a>
+                    <a href="#" onclick="showPage('complaints'); closeMobileMenu()" class="nav-link-mobile text-gray-600 hover:text-gray-900 transition-colors px-2 py-1">Complaints</a>
+                    <a href="#" onclick="showPage('analytics'); closeMobileMenu()" class="nav-link-mobile text-gray-600 hover:text-gray-900 transition-colors px-2 py-1">Analytics</a>
+                    <a href="#" onclick="showPage('contact'); closeMobileMenu()" class="nav-link-mobile text-gray-600 hover:text-gray-900 transition-colors px-2 py-1">Contact</a>
+                    <button class="sm:hidden bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors mt-2 mx-2">
+                        Submit Complaint
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Home Page -->
+    <div id="home" class="page active">
+        <!-- Hero Section -->
+        <section class="hero-gradient text-white py-12 sm:py-16 lg:py-20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6">
+                <div class="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+                    <div class="text-center lg:text-left">
+                        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 leading-tight">
+                            Smart City Complaint Management System
+                        </h1>
+                        <p class="text-lg sm:text-xl mb-6 sm:mb-8 text-blue-100">
+                            Transform your city's complaint handling with real-time tracking, intelligent filtering, and data-driven insights. Make your community voice heard.
+                        </p>
+                        <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                            <button onclick="showPage('dashboard')" class="bg-white text-blue-600 px-6 sm:px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+                                View Live Dashboard
+                            </button>
+                           
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-8 animate-float">
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div class="bg-white/20 rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold">1,247</div>
+                                    <div class="text-sm text-blue-200">Total Complaints</div>
+                                </div>
+                                <div class="bg-white/20 rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold">89%</div>
+                                    <div class="text-sm text-blue-200">Resolution Rate</div>
+                                </div>
+                                <div class="bg-white/20 rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold">2.3h</div>
+                                    <div class="text-sm text-blue-200">Avg Response</div>
+                                </div>
+                                <div class="bg-white/20 rounded-lg p-4 text-center">
+                                    <div class="text-3xl font-bold">24/7</div>
+                                    <div class="text-sm text-blue-200">Monitoring</div>
+                                </div>
+                            </div>
+                            <div class="text-center text-blue-200">
+                                <p class="text-sm">Real-time city management dashboard</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="py-12 sm:py-16 lg:py-20 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6">
+                <div class="text-center mb-12 sm:mb-16">
+                    <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Powerful Features</h2>
+                    <p class="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
+                        Everything you need to manage city complaints efficiently and transparently
+                    </p>
+                </div>
+                
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="bg-gray-50 rounded-xl p-8 card-hover">
+                        <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-6">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-4">Real-Time Map View</h3>
+                        <p class="text-gray-600">Interactive map displaying all complaints with precise geolocation and visual status indicators.</p>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-xl p-8 card-hover">
+                        <div class="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-6">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-4">Advanced Filtering</h3>
+                        <p class="text-gray-600">Filter complaints by type, status, location, priority, and date with instant results.</p>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-xl p-8 card-hover">
+                        <div class="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-6">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-4">Analytics Dashboard</h3>
+                        <p class="text-gray-600">Comprehensive insights with trends, patterns, and performance metrics for data-driven decisions.</p>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-xl p-8 card-hover">
+                        <div class="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center mb-6">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-4">Citizen Portal</h3>
+                        <p class="text-gray-600">Easy-to-use interface for citizens to submit, track, and receive updates on their complaints.</p>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-xl p-8 card-hover">
+                        <div class="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center mb-6">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-4">Priority Management</h3>
+                        <p class="text-gray-600">Automatic priority assignment and escalation based on complaint type and urgency.</p>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-xl p-8 card-hover">
+                        <div class="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center mb-6">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-4">Mobile Responsive</h3>
+                        <p class="text-gray-600">Fully responsive design that works seamlessly on desktop, tablet, and mobile devices.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section class="py-12 sm:py-16 lg:py-20 bg-gray-900 text-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6">
+                <div class="text-center mb-12 sm:mb-16">
+                    <h2 class="text-3xl sm:text-4xl font-bold mb-4">Making Cities Smarter</h2>
+                    <p class="text-lg sm:text-xl text-gray-300">Real impact through intelligent complaint management</p>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
+                    <div class="text-center">
+                        <div class="text-3xl sm:text-4xl lg:text-5xl font-bold text-blue-400 mb-2">50+</div>
+                        <div class="text-sm sm:text-base text-gray-300">Cities Using Our System</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl sm:text-4xl lg:text-5xl font-bold text-green-400 mb-2">1M+</div>
+                        <div class="text-sm sm:text-base text-gray-300">Complaints Processed</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl sm:text-4xl lg:text-5xl font-bold text-yellow-400 mb-2">92%</div>
+                        <div class="text-sm sm:text-base text-gray-300">Average Resolution Rate</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl sm:text-4xl lg:text-5xl font-bold text-purple-400 mb-2">1.8h</div>
+                        <div class="text-sm sm:text-base text-gray-300">Average Response Time</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboard" class="page">
+        <div class="flex flex-col lg:flex-row h-screen">
+            <!-- Mobile Filter Toggle -->
+            <div class="lg:hidden bg-white border-b border-gray-200 p-4">
+                <button onclick="toggleFilters()" class="flex items-center justify-between w-full text-left">
+                    <span class="text-lg font-semibold text-gray-900">Filters & Search</span>
+                    <svg id="filterToggleIcon" class="w-5 h-5 text-gray-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Sidebar Filter Panel -->
+            <aside id="filterPanel" class="w-full lg:w-80 bg-white shadow-lg border-r border-gray-200 overflow-y-auto hidden lg:block">
+                <div class="p-4 sm:p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-6">Filter Complaints</h2>
+                    
+                    <!-- Search Bar -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Search Complaints</label>
+                        <div class="relative">
+                            <input type="text" id="searchInput" placeholder="Search by ID, location, or description..." 
+                                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <!-- Complaint Type Filter -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Complaint Type</label>
+                        <select id="typeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">All Types</option>
+                            <option value="road">Road & Infrastructure</option>
+                            <option value="water">Water Supply</option>
+                            <option value="electricity">Electricity</option>
+                            <option value="waste">Waste Management</option>
+                            <option value="noise">Noise Pollution</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Status Filter -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" class="status-filter rounded text-blue-600 focus:ring-blue-500" value="pending" checked>
+                                <span class="ml-2 text-sm text-gray-700">Pending</span>
+                                <span class="ml-auto text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full" id="pendingCount">12</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="status-filter rounded text-blue-600 focus:ring-blue-500" value="in-progress" checked>
+                                <span class="ml-2 text-sm text-gray-700">In Progress</span>
+                                <span class="ml-auto text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full" id="progressCount">8</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="status-filter rounded text-blue-600 focus:ring-blue-500" value="resolved" checked>
+                                <span class="ml-2 text-sm text-gray-700">Resolved</span>
+                                <span class="ml-auto text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full" id="resolvedCount">25</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Location Filter -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                        <select id="locationFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">All Areas</option>
+                            <option value="downtown">Downtown</option>
+                            <option value="north">North District</option>
+                            <option value="south">South District</option>
+                            <option value="east">East District</option>
+                            <option value="west">West District</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Quick Stats -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-sm font-medium text-gray-700 mb-3">Quick Stats</h3>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Total Complaints</span>
+                                <span class="font-medium" id="totalComplaints">45</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Avg. Response Time</span>
+                                <span class="font-medium">2.3 hours</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Resolution Rate</span>
+                                <span class="font-medium text-green-600">78%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Map Area -->
+            <main class="flex-1 relative">
+                <div class="map-container grid-pattern h-full relative" id="mapContainer">
+                    <!-- Map Controls -->
+                    <div class="absolute top-4 right-4 z-20 flex flex-col space-y-2">
+                        <button class="bg-white p-2 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                        </button>
+                        <button class="bg-white p-2 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
+                            </svg>
+                        </button>
+                        <button class="bg-white p-2 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Legend -->
+                    <div class="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-4 z-20">
+                        <h4 class="text-sm font-medium text-gray-900 mb-3">Legend</h4>
+                        <div class="space-y-2">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-4 h-4 bg-red-500 rounded-full border-2 border-white"></div>
+                                <span class="text-xs text-gray-600">Pending</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-4 h-4 bg-yellow-500 rounded-full border-2 border-white"></div>
+                                <span class="text-xs text-gray-600">In Progress</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                                <span class="text-xs text-gray-600">Resolved</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Complaint Pins -->
+                    <div class="complaint-pin pending" style="top: 20%; left: 25%;" data-id="1" data-type="road" data-status="pending" data-location="downtown"></div>
+                    <div class="complaint-pin in-progress" style="top: 35%; left: 60%;" data-id="2" data-type="water" data-status="in-progress" data-location="north"></div>
+                    <div class="complaint-pin resolved" style="top: 60%; left: 30%;" data-id="3" data-type="electricity" data-status="resolved" data-location="south"></div>
+                    <div class="complaint-pin pending" style="top: 45%; left: 70%;" data-id="4" data-type="waste" data-status="pending" data-location="east"></div>
+                    <div class="complaint-pin in-progress" style="top: 25%; left: 80%;" data-id="5" data-type="noise" data-status="in-progress" data-location="west"></div>
+                    <div class="complaint-pin resolved" style="top: 70%; left: 50%;" data-id="6" data-type="road" data-status="resolved" data-location="downtown"></div>
+                    <div class="complaint-pin pending" style="top: 15%; left: 45%;" data-id="7" data-type="water" data-status="pending" data-location="north"></div>
+                    <div class="complaint-pin resolved" style="top: 80%; left: 20%;" data-id="8" data-type="electricity" data-status="resolved" data-location="south"></div>
+                </div>
+
+                <!-- Complaint Details Card -->
+                <div id="complaintCard" class="complaint-card absolute bottom-0 right-0 w-full sm:w-96 bg-white shadow-xl rounded-t-lg border-t border-gray-200 z-30">
+                    <div class="p-4 sm:p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900" id="complaintTitle">Select a complaint pin</h3>
+                            <button onclick="closeComplaintCard()" class="text-gray-400 hover:text-gray-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div id="complaintDetails" class="space-y-4">
+                            <p class="text-gray-600">Click on any complaint pin on the map to view details here.</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Complaints List Page -->
+    <div id="complaints" class="page">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 sm:mb-8 space-y-4 sm:space-y-0">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">All Complaints</h1>
+                    <p class="text-gray-600 mt-2">Manage and track all submitted complaints</p>
+                </div>
+                <button class="bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm sm:text-base">
+                    + New Complaint
+                </button>
+            </div>
+
+            <!-- Filters Bar -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6 sm:mb-8">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                            <option>All Status</option>
+                            <option>Pending</option>
+                            <option>In Progress</option>
+                            <option>Resolved</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                            <option>All Types</option>
+                            <option>Road & Infrastructure</option>
+                            <option>Water Supply</option>
+                            <option>Electricity</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                            <option>All Priorities</option>
+                            <option>High</option>
+                            <option>Medium</option>
+                            <option>Low</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                        <input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Complaints Table -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <!-- Mobile Card View -->
+                <div class="block sm:hidden">
+                    <div class="divide-y divide-gray-200">
+                        <div class="p-4 hover:bg-gray-50">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="font-medium text-gray-900 text-sm">CM-2024-001</div>
+                                <span class="status-badge status-pending">Pending</span>
+                            </div>
+                            <div class="text-sm text-gray-900 mb-1">Pothole on Main Street</div>
+                            <div class="text-xs text-gray-500 mb-2">Road & Infrastructure • High Priority</div>
+                            <div class="text-xs text-gray-500 mb-3">Jan 15, 2024</div>
+                            <div class="flex space-x-2">
+                                <button class="text-blue-600 hover:text-blue-900 text-xs font-medium">View</button>
+                                <button class="text-green-600 hover:text-green-900 text-xs font-medium">Update</button>
+                            </div>
+                        </div>
+                        <div class="p-4 hover:bg-gray-50">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="font-medium text-gray-900 text-sm">CM-2024-002</div>
+                                <span class="status-badge status-in-progress">In Progress</span>
+                            </div>
+                            <div class="text-sm text-gray-900 mb-1">Water Supply Disruption</div>
+                            <div class="text-xs text-gray-500 mb-2">Water Supply • Medium Priority</div>
+                            <div class="text-xs text-gray-500 mb-3">Jan 14, 2024</div>
+                            <div class="flex space-x-2">
+                                <button class="text-blue-600 hover:text-blue-900 text-xs font-medium">View</button>
+                                <button class="text-green-600 hover:text-green-900 text-xs font-medium">Update</button>
+                            </div>
+                        </div>
+                        <div class="p-4 hover:bg-gray-50">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="font-medium text-gray-900 text-sm">CM-2024-003</div>
+                                <span class="status-badge status-resolved">Resolved</span>
+                            </div>
+                            <div class="text-sm text-gray-900 mb-1">Street Light Malfunction</div>
+                            <div class="text-xs text-gray-500 mb-2">Electricity • Medium Priority</div>
+                            <div class="text-xs text-gray-500 mb-3">Jan 13, 2024</div>
+                            <div class="flex space-x-2">
+                                <button class="text-blue-600 hover:text-blue-900 text-xs font-medium">View</button>
+                                <button class="text-gray-400 text-xs font-medium">Closed</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Desktop Table View -->
+                <div class="hidden sm:block overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                <th class="hidden md:table-cell px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="hidden lg:table-cell px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                                <th class="hidden md:table-cell px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">CM-2024-001</td>
+                                <td class="px-4 lg:px-6 py-4 text-sm text-gray-900">Pothole on Main Street</td>
+                                <td class="hidden md:table-cell px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">Road & Infrastructure</td>
+                                <td class="px-4 lg:px-6 py-4 whitespace-nowrap">
+                                    <span class="status-badge status-pending">Pending</span>
+                                </td>
+                                <td class="hidden lg:table-cell px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">High</td>
+                                <td class="hidden md:table-cell px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">Jan 15, 2024</td>
+                                <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button class="text-blue-600 hover:text-blue-900 mr-2 lg:mr-3">View</button>
+                                    <button class="text-green-600 hover:text-green-900">Update</button>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">CM-2024-002</td>
+                                <td class="px-4 lg:px-6 py-4 text-sm text-gray-900">Water Supply Disruption</td>
+                                <td class="hidden md:table-cell px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">Water Supply</td>
+                                <td class="px-4 lg:px-6 py-4 whitespace-nowrap">
+                                    <span class="status-badge status-in-progress">In Progress</span>
+                                </td>
+                                <td class="hidden lg:table-cell px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">Medium</td>
+                                <td class="hidden md:table-cell px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">Jan 14, 2024</td>
+                                <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button class="text-blue-600 hover:text-blue-900 mr-2 lg:mr-3">View</button>
+                                    <button class="text-green-600 hover:text-green-900">Update</button>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">CM-2024-003</td>
+                                <td class="px-4 lg:px-6 py-4 text-sm text-gray-900">Street Light Malfunction</td>
+                                <td class="hidden md:table-cell px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">Electricity</td>
+                                <td class="px-4 lg:px-6 py-4 whitespace-nowrap">
+                                    <span class="status-badge status-resolved">Resolved</span>
+                                </td>
+                                <td class="hidden lg:table-cell px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">Medium</td>
+                                <td class="hidden md:table-cell px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">Jan 13, 2024</td>
+                                <td class="px-4 lg:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button class="text-blue-600 hover:text-blue-900 mr-2 lg:mr-3">View</button>
+                                    <button class="text-gray-400">Closed</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <div class="bg-white px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+                    <div class="flex-1 flex justify-between sm:hidden">
+                        <button class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</button>
+                        <button class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</button>
+                    </div>
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">Showing <span class="font-medium">1</span> to <span class="font-medium">10</span> of <span class="font-medium">97</span> results</p>
+                        </div>
+                        <div>
+                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                <button class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">Previous</button>
+                                <button class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">1</button>
+                                <button class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-blue-50 text-sm font-medium text-blue-600">2</button>
+                                <button class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">3</button>
+                                <button class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">Next</button>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Page -->
+    <div id="analytics" class="page">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+            <div class="mb-6 sm:mb-8">
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
+                <p class="text-gray-600 mt-2">Insights and trends from complaint data</p>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-blue-100 rounded-md flex items-center justify-center">
+                                <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Total Complaints</dt>
+                                <dd class="text-lg font-medium text-gray-900">1,247</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-green-100 rounded-md flex items-center justify-center">
+                                <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Resolved</dt>
+                                <dd class="text-lg font-medium text-gray-900">1,108</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-yellow-100 rounded-md flex items-center justify-center">
+                                <svg class="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Avg Response Time</dt>
+                                <dd class="text-lg font-medium text-gray-900">2.3 hours</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-purple-100 rounded-md flex items-center justify-center">
+                                <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Resolution Rate</dt>
+                                <dd class="text-lg font-medium text-gray-900">89%</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid lg:grid-cols-2 gap-8 mb-8">
+                <!-- Complaints by Type Chart -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Complaints by Type</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">Road & Infrastructure</span>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-32 bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 45%"></div>
+                                </div>
+                                <span class="text-sm font-medium text-gray-900">45%</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">Water Supply</span>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-32 bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full" style="width: 25%"></div>
+                                </div>
+                                <span class="text-sm font-medium text-gray-900">25%</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">Electricity</span>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-32 bg-gray-200 rounded-full h-2">
+                                    <div class="bg-yellow-600 h-2 rounded-full" style="width: 20%"></div>
+                                </div>
+                                <span class="text-sm font-medium text-gray-900">20%</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">Waste Management</span>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-32 bg-gray-200 rounded-full h-2">
+                                    <div class="bg-purple-600 h-2 rounded-full" style="width: 10%"></div>
+                                </div>
+                                <span class="text-sm font-medium text-gray-900">10%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Trends -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Monthly Trends</h3>
+                    <div class="h-64 flex items-end justify-between space-x-2">
+                        <div class="flex flex-col items-center">
+                            <div class="w-8 bg-blue-600 rounded-t" style="height: 60%"></div>
+                            <span class="text-xs text-gray-500 mt-2">Jan</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="w-8 bg-blue-600 rounded-t" style="height: 80%"></div>
+                            <span class="text-xs text-gray-500 mt-2">Feb</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="w-8 bg-blue-600 rounded-t" style="height: 45%"></div>
+                            <span class="text-xs text-gray-500 mt-2">Mar</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="w-8 bg-blue-600 rounded-t" style="height: 70%"></div>
+                            <span class="text-xs text-gray-500 mt-2">Apr</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="w-8 bg-blue-600 rounded-t" style="height: 55%"></div>
+                            <span class="text-xs text-gray-500 mt-2">May</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="w-8 bg-blue-600 rounded-t" style="height: 90%"></div>
+                            <span class="text-xs text-gray-500 mt-2">Jun</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-900">Complaint CM-2024-045 has been resolved</p>
+                            <p class="text-xs text-gray-500">2 minutes ago</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-900">New complaint submitted for Water Supply issue</p>
+                            <p class="text-xs text-gray-500">15 minutes ago</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-900">Complaint CM-2024-043 status updated to In Progress</p>
+                            <p class="text-xs text-gray-500">1 hour ago</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Page -->
+    <div id="contact" class="page">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+            <div class="text-center mb-12 sm:mb-16">
+                <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Get In Touch</h1>
+                <p class="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
+                    Ready to transform your city's complaint management? We'd love to hear from you.
+                </p>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-8 lg:gap-12">
+                <!-- Contact Form -->
+                <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6">Send us a message</h2>
+                    <form onsubmit="handleContactSubmit(event)" class="space-y-6">
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                                <input type="text" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                                <input type="text" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Organization</label>
+                            <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                            <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option>General Inquiry</option>
+                                <option>Demo Request</option>
+                                <option>Technical Support</option>
+                                <option>Partnership</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                            <textarea rows="4" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Tell us about your needs..."></textarea>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                            Send Message
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Contact Information -->
+                <div class="space-y-8">
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
+                        <div class="space-y-6">
+                            <div class="flex items-start space-x-4">
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900">Email</h3>
+                                    <p class="text-gray-600">info@complaintmap.com</p>
+                                    <p class="text-gray-600">support@complaintmap.com</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start space-x-4">
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900">Phone</h3>
+                                    <p class="text-gray-600">+1 (555) 123-4567</p>
+                                    <p class="text-gray-600">+1 (555) 987-6543</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start space-x-4">
+                                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900">Address</h3>
+                                    <p class="text-gray-600">123 Tech Street<br>Ahmedabad District<br>India </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Office Hours -->
+                    <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-6">Office Hours</h2>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Monday - Friday</span>
+                                <span class="font-medium text-gray-900">9:00 AM - 6:00 PM</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Saturday</span>
+                                <span class="font-medium text-gray-900">10:00 AM - 4:00 PM</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Sunday</span>
+                                <span class="font-medium text-gray-900">Closed</span>
+                            </div>
+                        </div>
+                        <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                            <p class="text-sm text-blue-800">
+                                <strong>24/7 Support:</strong> Our technical support team is available around the clock for critical issues.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <span class="text-xl font-bold">ComplaintMap</span>
+                    </div>
+                    <p class="text-gray-400 mb-4">
+                        Transforming urban governance through intelligent complaint management and real-time citizen engagement.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
+                            </svg>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M22.46 6c-.77.35-1.6.58-2.46.69.88-.53 1.56-1.37 1.88-2.38-.83.5-1.75.85-2.72 1.05C18.37 4.5 17.26 4 16 4c-2.35 0-4.27 1.92-4.27 4.29 0 .34.04.67.11.98C8.28 9.09 5.11 7.38 3 4.79c-.37.63-.58 1.37-.58 2.15 0 1.49.75 2.81 1.91 3.56-.71 0-1.37-.2-1.95-.5v.03c0 2.08 1.48 3.82 3.44 4.21a4.22 4.22 0 0 1-1.93.07 4.28 4.28 0 0 0 4 2.98 8.521 8.521 0 0 1-5.33 1.84c-.34 0-.68-.02-1.02-.06C3.44 20.29 5.7 21 8.12 21 16 21 20.33 14.46 20.33 8.79c0-.19 0-.37-.01-.56.84-.6 1.56-1.36 2.14-2.23z"/>
+                            </svg>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Product</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition-colors">Features</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Pricing</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">API Documentation</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Integrations</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Company</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" onclick="showPage('about')" class="hover:text-white transition-colors">About Us</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Careers</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Blog</a></li>
+                        <li><a href="#" onclick="showPage('contact')" class="hover:text-white transition-colors">Contact</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Support</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition-colors">Help Center</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Community</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Status Page</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Security</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-gray-400 text-sm">© 2024 ComplaintMap. All rights reserved.</p>
+                <div class="flex space-x-6 mt-4 md:mt-0">
+                    <a href="#" class="text-gray-400 hover:text-white text-sm transition-colors">Privacy Policy</a>
+                    <a href="#" class="text-gray-400 hover:text-white text-sm transition-colors">Terms of Service</a>
+                    <a href="#" class="text-gray-400 hover:text-white text-sm transition-colors">Cookie Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Sample complaint data
+        const complaints = {
+            1: {
+                id: "CM-2024-001",
+                title: "Pothole on Main Street",
+                type: "Road & Infrastructure",
+                status: "pending",
+                location: "Downtown",
+                description: "Large pothole causing traffic issues near the intersection of Main St and 5th Ave.",
+                reportedBy: "John Smith",
+                timestamp: "2024-01-15 09:30 AM",
+                priority: "High"
+            },
+            2: {
+                id: "CM-2024-002",
+                title: "Water Supply Disruption",
+                type: "Water Supply",
+                status: "in-progress",
+                location: "North District",
+                description: "Intermittent water supply affecting residential area on Oak Street.",
+                reportedBy: "Sarah Johnson",
+                timestamp: "2024-01-14 02:15 PM",
+                priority: "Medium"
+            },
+            3: {
+                id: "CM-2024-003",
+                title: "Street Light Malfunction",
+                type: "Electricity",
+                status: "resolved",
+                location: "South District",
+                description: "Multiple street lights not working on Pine Avenue, creating safety concerns.",
+                reportedBy: "Mike Davis",
+                timestamp: "2024-01-13 07:45 PM",
+                priority: "Medium"
+            },
+            4: {
+                id: "CM-2024-004",
+                title: "Garbage Collection Missed",
+                type: "Waste Management",
+                status: "pending",
+                location: "East District",
+                description: "Scheduled garbage collection was missed for the third consecutive week.",
+                reportedBy: "Lisa Chen",
+                timestamp: "2024-01-15 11:20 AM",
+                priority: "Low"
+            },
+            5: {
+                id: "CM-2024-005",
+                title: "Construction Noise Violation",
+                type: "Noise Pollution",
+                status: "in-progress",
+                location: "West District",
+                description: "Construction work continuing beyond permitted hours, disturbing residents.",
+                reportedBy: "Robert Wilson",
+                timestamp: "2024-01-14 10:30 PM",
+                priority: "High"
+            },
+            6: {
+                id: "CM-2024-006",
+                title: "Road Repair Completed",
+                type: "Road & Infrastructure",
+                status: "resolved",
+                location: "Downtown",
+                description: "Road surface repair on Broadway has been successfully completed.",
+                reportedBy: "City Maintenance",
+                timestamp: "2024-01-12 03:00 PM",
+                priority: "Medium"
+            },
+            7: {
+                id: "CM-2024-007",
+                title: "Water Pressure Issues",
+                type: "Water Supply",
+                status: "pending",
+                location: "North District",
+                description: "Low water pressure reported in apartment complex on Elm Street.",
+                reportedBy: "Property Manager",
+                timestamp: "2024-01-15 08:15 AM",
+                priority: "Medium"
+            },
+            8: {
+                id: "CM-2024-008",
+                title: "Power Outage Restored",
+                type: "Electricity",
+                status: "resolved",
+                location: "South District",
+                description: "Power outage affecting residential block has been fully restored.",
+                reportedBy: "Electric Company",
+                timestamp: "2024-01-13 01:30 PM",
+                priority: "High"
+            }
+        };
+
+        // Page navigation
+        function showPage(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Show selected page
+            document.getElementById(pageId).classList.add('active');
+            
+            // Update desktop navigation
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('text-blue-600', 'font-medium', 'border-b-2', 'border-blue-600');
+                link.classList.add('text-gray-600');
+            });
+            
+            // Update mobile navigation
+            document.querySelectorAll('.nav-link-mobile').forEach(link => {
+                link.classList.remove('text-blue-600', 'font-medium');
+                link.classList.add('text-gray-600');
+            });
+            
+            // Highlight active nav item (desktop)
+            const activeLink = document.querySelector(`.nav-link[onclick*="showPage('${pageId}')"]`);
+            if (activeLink) {
+                activeLink.classList.remove('text-gray-600');
+                activeLink.classList.add('text-blue-600', 'font-medium', 'border-b-2', 'border-blue-600');
+            }
+            
+            // Highlight active nav item (mobile)
+            const activeMobileLink = document.querySelector(`.nav-link-mobile[onclick*="showPage('${pageId}')"]`);
+            if (activeMobileLink) {
+                activeMobileLink.classList.remove('text-gray-600');
+                activeMobileLink.classList.add('text-blue-600', 'font-medium');
+            }
+            
+            // Close mobile menu if open
+            closeMobileMenu();
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        // Show complaint details when pin is clicked
+        document.querySelectorAll('.complaint-pin').forEach(pin => {
+            pin.addEventListener('click', function() {
+                const complaintId = this.getAttribute('data-id');
+                const complaint = complaints[complaintId];
+                
+                if (complaint) {
+                    showComplaintDetails(complaint);
+                }
+            });
+        });
+
+        function showComplaintDetails(complaint) {
+            const card = document.getElementById('complaintCard');
+            const title = document.getElementById('complaintTitle');
+            const details = document.getElementById('complaintDetails');
+            
+            title.textContent = complaint.title;
+            
+            const statusClass = `status-${complaint.status}`;
+            
+            details.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-sm font-medium text-gray-500">ID: ${complaint.id}</span>
+                    <span class="status-badge ${statusClass}">${complaint.status.replace('-', ' ').toUpperCase()}</span>
+                </div>
+                
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Type</label>
+                        <p class="text-sm text-gray-900">${complaint.type}</p>
+                    </div>
+                    
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Location</label>
+                        <p class="text-sm text-gray-900">${complaint.location}</p>
+                    </div>
+                    
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Description</label>
+                        <p class="text-sm text-gray-900">${complaint.description}</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Reported By</label>
+                            <p class="text-sm text-gray-900">${complaint.reportedBy}</p>
+                        </div>
+                        <div>
+                            <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Priority</label>
+                            <p class="text-sm text-gray-900">${complaint.priority}</p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Timestamp</label>
+                        <p class="text-sm text-gray-900">${complaint.timestamp}</p>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex space-x-3">
+                    <button class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                        Update Status
+                    </button>
+                    <button class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                        View Full Details
+                    </button>
+                </div>
+            `;
+            
+            card.classList.add('show');
+        }
+
+        function closeComplaintCard() {
+            const card = document.getElementById('complaintCard');
+            card.classList.remove('show');
+        }
+
+        // Filter functionality
+        function applyFilters() {
+            const typeFilter = document.getElementById('typeFilter')?.value || '';
+            const locationFilter = document.getElementById('locationFilter')?.value || '';
+            const statusFilters = Array.from(document.querySelectorAll('.status-filter:checked')).map(cb => cb.value);
+            const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+            
+            document.querySelectorAll('.complaint-pin').forEach(pin => {
+                const pinType = pin.getAttribute('data-type');
+                const pinStatus = pin.getAttribute('data-status');
+                const pinLocation = pin.getAttribute('data-location');
+                const pinId = pin.getAttribute('data-id');
+                const complaint = complaints[pinId];
+                
+                let show = true;
+                
+                // Type filter
+                if (typeFilter && pinType !== typeFilter) {
+                    show = false;
+                }
+                
+                // Location filter
+                if (locationFilter && pinLocation !== locationFilter) {
+                    show = false;
+                }
+                
+                // Status filter
+                if (!statusFilters.includes(pinStatus)) {
+                    show = false;
+                }
+                
+                // Search filter
+                if (searchTerm && complaint) {
+                    const searchableText = `${complaint.title} ${complaint.description} ${complaint.id} ${complaint.location}`.toLowerCase();
+                    if (!searchableText.includes(searchTerm)) {
+                        show = false;
+                    }
+                }
+                
+                pin.style.display = show ? 'block' : 'none';
+            });
+            
+            updateCounts();
+        }
+
+        function updateCounts() {
+            const visiblePins = document.querySelectorAll('.complaint-pin[style*="block"], .complaint-pin:not([style*="none"])');
+            let pendingCount = 0, progressCount = 0, resolvedCount = 0;
+            
+            visiblePins.forEach(pin => {
+                const status = pin.getAttribute('data-status');
+                if (status === 'pending') pendingCount++;
+                else if (status === 'in-progress') progressCount++;
+                else if (status === 'resolved') resolvedCount++;
+            });
+            
+            const pendingEl = document.getElementById('pendingCount');
+            const progressEl = document.getElementById('progressCount');
+            const resolvedEl = document.getElementById('resolvedCount');
+            const totalEl = document.getElementById('totalComplaints');
+            
+            if (pendingEl) pendingEl.textContent = pendingCount;
+            if (progressEl) progressEl.textContent = progressCount;
+            if (resolvedEl) resolvedEl.textContent = resolvedCount;
+            if (totalEl) totalEl.textContent = visiblePins.length;
+        }
+
+        // Add event listeners for filters
+        document.addEventListener('DOMContentLoaded', function() {
+            const typeFilter = document.getElementById('typeFilter');
+            const locationFilter = document.getElementById('locationFilter');
+            const searchInput = document.getElementById('searchInput');
+            
+            if (typeFilter) typeFilter.addEventListener('change', applyFilters);
+            if (locationFilter) locationFilter.addEventListener('change', applyFilters);
+            if (searchInput) searchInput.addEventListener('input', applyFilters);
+            
+            document.querySelectorAll('.status-filter').forEach(checkbox => {
+                checkbox.addEventListener('change', applyFilters);
+            });
+            
+            // Initialize counts
+            updateCounts();
+        });
+
+        // Mobile menu functionality
+        function toggleMobileMenu() {
+            const mobileMenu = document.getElementById('mobileMenu');
+            const menuIcon = document.getElementById('menuIcon');
+            const closeIcon = document.getElementById('closeIcon');
+            
+            if (mobileMenu.classList.contains('hidden')) {
+                mobileMenu.classList.remove('hidden');
+                menuIcon.classList.add('hidden');
+                closeIcon.classList.remove('hidden');
+            } else {
+                mobileMenu.classList.add('hidden');
+                menuIcon.classList.remove('hidden');
+                closeIcon.classList.add('hidden');
+            }
+        }
+        
+        function closeMobileMenu() {
+            const mobileMenu = document.getElementById('mobileMenu');
+            const menuIcon = document.getElementById('menuIcon');
+            const closeIcon = document.getElementById('closeIcon');
+            
+            mobileMenu.classList.add('hidden');
+            menuIcon.classList.remove('hidden');
+            closeIcon.classList.add('hidden');
+        }
+        
+        // Dashboard filter toggle for mobile
+        function toggleFilters() {
+            const filterPanel = document.getElementById('filterPanel');
+            const toggleIcon = document.getElementById('filterToggleIcon');
+            
+            if (filterPanel.classList.contains('hidden')) {
+                filterPanel.classList.remove('hidden');
+                toggleIcon.style.transform = 'rotate(180deg)';
+            } else {
+                filterPanel.classList.add('hidden');
+                toggleIcon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Contact form submission
+        function handleContactSubmit(event) {
+            event.preventDefault();
+            
+            const button = event.target.querySelector('button[type="submit"]');
+            const originalText = button.textContent;
+            
+            button.textContent = 'Sending...';
+            button.disabled = true;
+            
+            // Simulate form submission
+            setTimeout(() => {
+                button.textContent = 'Message Sent! ✓';
+                button.classList.add('bg-green-600');
+                button.classList.remove('bg-blue-600');
+                
+                // Reset form
+                event.target.reset();
+                
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-green-600');
+                    button.classList.add('bg-blue-600');
+                    button.disabled = false;
+                }, 3000);
+            }, 1500);
+        }
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98c63a12113e2e8f',t:'MTc2MDEwMDQ1Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
