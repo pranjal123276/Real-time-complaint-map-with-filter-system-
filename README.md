@@ -41,15 +41,14 @@ SmartComplaintSystem/
 
 │  
 ├── frontend/  
-│   ├── index.html  
-│   ├── admin.html  
-│   ├── user.html  
-│   ├── js/  
-│   │    └── auth.js  
-│   ├── css/ 
-│   │    └── style.css  
+│&nbsp;&nbsp;&nbsp;&nbsp;   ├── index.html  
+│&nbsp;&nbsp;&nbsp;&nbsp; ├── admin.html  
+│&nbsp;&nbsp;&nbsp;&nbsp;  ├── user.html  
+│&nbsp;&nbsp;&nbsp;&nbsp;  ├── js/  
+│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  ├── auth.js  
+│&nbsp;&nbsp; &nbsp;&nbsp;    ├── css/   
+│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;   │── style.css  
 │  
-├── backend/
-│   └── server.js
-│
-├── package.json
+├── backend/  
+│&nbsp;&nbsp;&nbsp;&nbsp; ├── server.js  
+│├── package.json
