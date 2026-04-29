@@ -37,17 +37,28 @@ Helps authorities track problem areas quickly
 - Users/admins apply filters
 - Authorities monitor and resolve issues
 
-SmartComplaintSystem/
-│
+SmartComplaintSystem/  
+
+│  
+
 ├── frontend/
-│   ├── index.html
-│   ├── admin.html
-│   ├── user.html
-│   ├── js/
-│   │    └── auth.js
-│   ├── css/
-│   │    └── style.css
-│
+
+│   ├── index.html  
+
+│   ├── admin.html  
+
+│   ├── user.html  
+
+│   ├── js/  
+
+│   │    └── auth.js  
+
+│   ├── css/ 
+
+│   │    └── style.css  
+
+│  
+
 ├── backend/
 │   └── server.js
 │
