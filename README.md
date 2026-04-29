@@ -37,10 +37,18 @@ Helps authorities track problem areas quickly
 - Users/admins apply filters
 - Authorities monitor and resolve issues
 
-
-📁 Project Structure
-- frontend/        # UI components
-- backend/         # API & server logic
--  database/        # DB models/config
--  map/             # Map integration logic
--   EADME.md
+SmartComplaintSystem/
+│
+├── frontend/
+│   ├── index.html
+│   ├── admin.html
+│   ├── user.html
+│   ├── js/
+│   │    └── auth.js
+│   ├── css/
+│   │    └── style.css
+│
+├── backend/
+│   └── server.js
+│
+├── package.json
